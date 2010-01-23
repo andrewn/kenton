@@ -2,6 +2,9 @@ require 'rubygems'
 require 'typhoeus'
 require 'json'
 require 'couchrest'
+require 'logger'
+
+log = Logger.new('/tmp/radar_stories.log', 'weekly')
 
 COUCHDB = "http://db.andrewnicolaou.co.uk/news"
 APPDATA = "/app_data"
@@ -17,14 +20,17 @@ else
   app_data = JSON.parse(response.body)
 end
 
-puts "Got last_accessed_timestamp from db: #{app_data['last_accessed_timestamp']}"
+log.info "Got last_accessed_timestamp from db: #{app_data['last_accessed_timestamp']}"
 
 # ?since=2010-01-22T16:37:35+0000
 last_access_url = "?since=#{app_data['last_accessed_timestamp']}"
 
 response = Typhoeus::Request.get( RADAR + last_access_url )
 
-exit if response.code != 200
+if response.code != 200
+  log.fatal "Response code from radar wasn't 200. Exiting."
+  exit
+end
 
 # Get radar stories as JSON
 json = JSON.parse( response.body )
@@ -37,11 +43,11 @@ response = Typhoeus::Request.put( COUCHDB + APPDATA,
                                   :headers  => { 
                                     "Content-Type" => 'application/json' 
                                   })
-puts "Update last accessed to #{app_data['last_accessed_timestamp']} (#{response.code})"
+log.info "Update last accessed to #{app_data['last_accessed_timestamp']} (#{response.code})"
 
 @db = CouchRest.database( COUCHDB )
 
-puts "There are #{json['stories'].length} stories."
+log.info "There are #{json['stories'].length} stories."
 
 json["stories"].each_with_index do | story, index |
   print "#{index} "
@@ -50,8 +56,11 @@ json["stories"].each_with_index do | story, index |
 end
 puts ""
 
-# Save to db
-@db.bulk_save( json["stories"] )
+if json['stories'].length > 0
+  # Save to db
+  @db.bulk_save( json["stories"] )
+  log.info "Saved to db. Relax."
+else
+  log.info "Nothing to save to db"
+end
 
-puts "Saved to db."
-puts "Relax."
