@@ -2,10 +2,12 @@ require 'rubygems'
 require 'typhoeus'
 require 'json'
 require 'couchrest'
+require 'logger'
+
+log = Logger.new('/tmp/term_extractor.log', 'weekly')
+log.level = Logger::INFO  # Only log 'info' level and above (ignores debug)
 
 # TODO: 
-#  - Don't update terms if in doc already
-#  - Write view to only return docs without terms
 #  - Log if Yahoo API starts rejecting our requests
 
 COUCHDB       = "http://db.andrewnicolaou.co.uk/news"
@@ -20,7 +22,7 @@ all_docs_without_terms = Typhoeus::Request.get( COUCHDB + NO_TERM_VIEW )
 
 json = JSON.parse( all_docs_without_terms.body )["rows"]
 
-puts "Fetched #{json.length} stories without terms."
+log.info "Fetched #{json.length} stories without terms."
 
 json.each do | row |
   # Get story object from couchdb
@@ -35,8 +37,8 @@ json.each do | row |
     yahoo = Typhoeus::Request.get( yahoo_url )
   
     if ( yahoo.code != 200 ) 
-      puts "Argh! Brok."
-      puts yahoo_url
+      log.fatal "Argh! Brok."
+      log.fatal yahoo_url
       exit
     end
   
@@ -50,7 +52,7 @@ json.each do | row |
                                       :headers  => { 
                                         "Content-Type" => 'application/json' 
                                       })
-    puts "#{row['id']} #{terms} (#{response.code})"
+    log.debug "#{row['id']} #{terms} (#{response.code})"
     
   end
 end
