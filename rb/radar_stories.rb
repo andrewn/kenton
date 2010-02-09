@@ -47,7 +47,7 @@ log.info "Update last accessed to #{app_data['last_accessed_timestamp']} (#{resp
 
 @db = CouchRest.database( COUCHDB )
 
-story_ids = json.collect { |i| i._id }.join(",")
+story_ids = json['stories'].collect { |i| i._id }.join(",")
 
 log.info "There are #{json['stories'].length} stories: #{story_ids}"
 
